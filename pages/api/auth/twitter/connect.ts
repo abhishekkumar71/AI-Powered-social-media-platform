@@ -43,7 +43,7 @@ export default async function handler(
     "tweet.read tweet.write users.read offline.access"
   )}&state=${encodeURIComponent(
     statePayload
-  )}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
+  )}&code_challenge=${codeChallenge}&code_challenge_method=S256&prompt=consent`;
 
   res.json({ redirect: oauthUrl });
 }
