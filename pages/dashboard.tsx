@@ -1,4 +1,3 @@
-// components/NewPostForm.tsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
@@ -13,6 +12,7 @@ import {
 import { useNotification } from "@/lib/providers/NotificationProvider";
 import { useLoading } from "@/lib/providers/LoadingProvider";
 import XIcon from "@mui/icons-material/X";
+import { useSession, signIn } from "next-auth/react"; // added
 
 export default function NewPostForm() {
   const [prompt, setPrompt] = useState("");
@@ -23,9 +23,11 @@ export default function NewPostForm() {
 
   const { notify } = useNotification();
   const { setLoading } = useLoading();
+  const { data: session } = useSession(); // added
 
   useEffect(() => {
     (async () => {
+      if (!session) return; // skip API call if not logged in
       try {
         setLoading(true);
         const res = await axios.get("/api/auth/twitter/status");
@@ -36,19 +38,17 @@ export default function NewPostForm() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [session]); // added session as dependency
 
   const generateContent = async () => {
+    if (!session) return signIn(); // check login
     if (!prompt)
       return notify({ message: "Enter a prompt", severity: "warning" });
     setGenerating(true);
     try {
       const res = await axios.post("/api/auth/generate-content", { prompt });
       const generated = res.data.content ?? "";
-      setContent((prev) => {
-        const newContent = prev ? prev + "\n" + generated : generated;
-        return newContent;
-      });
+      setContent((prev) => (prev ? prev + "\n" + generated : generated));
       notify({ message: "Content generated", severity: "success" });
     } catch (err) {
       console.error(err);
@@ -59,6 +59,7 @@ export default function NewPostForm() {
   };
 
   const postToInstagram = async () => {
+    if (!session) return signIn(); // check login
     setPosting(true);
     try {
       const imageUrl =
@@ -80,6 +81,7 @@ export default function NewPostForm() {
   };
 
   const postToTwitter = async () => {
+    if (!session) return signIn(); // check login
     setPosting(true);
     try {
       const res = await axios.post("/api/auth/twitter/postToX", {
@@ -104,6 +106,7 @@ export default function NewPostForm() {
   };
 
   const connectTwitter = async () => {
+    if (!session) return signIn(); // check login
     try {
       const res = await axios.get("/api/auth/twitter/connect");
       if (res.data.redirect) {
@@ -143,7 +146,7 @@ export default function NewPostForm() {
           <Button
             variant="contained"
             onClick={generateContent}
-            disabled={generating}
+            disabled={generating || !session} // disabled if not logged in
           >
             {generating ? (
               <CircularProgress size={20} color="inherit" />
@@ -170,7 +173,7 @@ export default function NewPostForm() {
             variant="contained"
             color="secondary"
             onClick={postToInstagram}
-            disabled={posting || !content}
+            disabled={posting || !content || !session} 
           >
             {posting ? (
               <CircularProgress size={20} color="inherit" />
@@ -181,7 +184,6 @@ export default function NewPostForm() {
 
           {isConnected === null ? (
             <Button disabled>
-              {" "}
               <XIcon />
               Checking Twitter...
             </Button>
@@ -190,9 +192,8 @@ export default function NewPostForm() {
               variant="contained"
               color="primary"
               onClick={postToTwitter}
-              disabled={posting || !content}
+              disabled={posting || !content || !session} 
             >
-              {" "}
               <XIcon />
               {posting ? (
                 <CircularProgress size={20} color="inherit" />
@@ -204,15 +205,10 @@ export default function NewPostForm() {
             <Button
               variant="outlined"
               onClick={connectTwitter}
-              disabled={posting}
+              disabled={posting || !session} // added session check
             >
-              {" "}
               <XIcon />
-              {posting ? (
-                <CircularProgress size={20} color="inherit" />
-              ) : (
-                "Connect Twitter"
-              )}
+              {posting ? <CircularProgress size={20} color="inherit" /> : "Connect Twitter"}
             </Button>
           )}
         </Box>
