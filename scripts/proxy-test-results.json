@@ -1,0 +1,172 @@
+[
+  {
+    "id": "cmh1ogibv0002hi0sp8dt2hqi",
+    "ip": "38.170.176.177",
+    "port": 5572,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T09:23:17.992Z",
+    "httpbin": {
+      "ok": true,
+      "body": "{\n  \"origin\": \"38.170.176.177\"\n}",
+      "error": null
+    },
+    "xHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    }
+  },
+  {
+    "id": "cmh1ogjax0003hi0sj5ifg03o",
+    "ip": "198.23.239.134",
+    "port": 6540,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T09:23:29.143Z",
+    "httpbin": {
+      "ok": true,
+      "body": "{\n  \"origin\": \"198.23.239.134\"\n}",
+      "error": null
+    },
+    "xHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    }
+  },
+  {
+    "id": "cmh1ogkak0004hi0si6hm0wey",
+    "ip": "45.38.107.97",
+    "port": 6014,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T09:23:39.882Z",
+    "httpbin": {
+      "ok": true,
+      "body": "{\n  \"origin\": \"45.38.107.97\"\n}",
+      "error": null
+    },
+    "xHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    }
+  },
+  {
+    "id": "cmh1ogl9d0005hi0smdpdnsgw",
+    "ip": "107.172.163.27",
+    "port": 6543,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T09:23:48.466Z",
+    "httpbin": {
+      "ok": true,
+      "body": "{\n  \"origin\": \"107.172.163.27\"\n}",
+      "error": null
+    },
+    "xHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    }
+  },
+  {
+    "id": "cmh1ogm8p0006hi0s38968uju",
+    "ip": "64.137.96.74",
+    "port": 6641,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T09:23:58.324Z",
+    "httpbin": {
+      "ok": true,
+      "body": "{\n  \"origin\": \"64.137.96.74\"\n}",
+      "error": null
+    },
+    "xHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    }
+  },
+  {
+    "id": "cmh1ogn8g0007hi0s6exkifhj",
+    "ip": "216.10.27.159",
+    "port": 6837,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T09:24:05.645Z",
+    "httpbin": {
+      "ok": true,
+      "body": "{\n  \"origin\": \"216.10.27.159\"\n}",
+      "error": null
+    },
+    "xHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    }
+  },
+  {
+    "id": "cmh1ogo8c0008hi0si6ix3hm5",
+    "ip": "142.111.67.146",
+    "port": 5611,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T09:24:15.686Z",
+    "httpbin": {
+      "ok": true,
+      "body": "{\n  \"origin\": \"142.111.67.146\"\n}",
+      "error": null
+    },
+    "xHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    }
+  },
+  {
+    "id": "cmh1ogp8m0009hi0s5ozmay76",
+    "ip": "142.147.128.93",
+    "port": 6593,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T09:24:31.158Z",
+    "httpbin": {
+      "ok": true,
+      "body": "{\n  \"origin\": \"142.147.128.93\"\n}",
+      "error": null
+    },
+    "xHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    }
+  },
+  {
+    "id": "cmh1ogfnu0000hi0sva5hj3uo",
+    "ip": "142.111.48.253",
+    "port": 7030,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T09:24:41.972Z",
+    "httpbin": {
+      "ok": true,
+      "body": "502 Bad Gateway",
+      "error": null
+    },
+    "xHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    }
+  },
+  {
+    "id": "cmh1oghd20001hi0sju7rrxw4",
+    "ip": "31.59.20.176",
+    "port": 6754,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T09:24:50.675Z",
+    "httpbin": {
+      "ok": true,
+      "body": "{\n  \"origin\": \"31.59.20.176\"\n}",
+      "error": null
+    },
+    "xHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    }
+  }
+]

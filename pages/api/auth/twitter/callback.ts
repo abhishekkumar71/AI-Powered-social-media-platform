@@ -68,7 +68,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     },
   });
 
-  // Delete used OAuth record
   await prisma.twitterOAuth.delete({ where: { state: state as string } });
 
   res.redirect(`/dashboard?pendingText=${encodeURIComponent(decodedState.pendingText || "")}`);

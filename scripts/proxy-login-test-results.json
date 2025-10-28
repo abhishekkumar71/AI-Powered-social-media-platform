@@ -1,0 +1,192 @@
+[
+  {
+    "id": "cmh1ogibv0002hi0sp8dt2hqi",
+    "ip": "38.170.176.177",
+    "port": 5572,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T12:48:28.507Z",
+    "gotHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    },
+    "loginPage": {
+      "reachable": true,
+      "hasUsernameField": false,
+      "hasCaptcha": true,
+      "errors": [],
+      "snapshotText": ""
+    }
+  },
+  {
+    "id": "cmh1ogjax0003hi0sj5ifg03o",
+    "ip": "198.23.239.134",
+    "port": 6540,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T12:48:37.244Z",
+    "gotHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    },
+    "loginPage": {
+      "reachable": true,
+      "hasUsernameField": false,
+      "hasCaptcha": true,
+      "errors": [],
+      "snapshotText": ""
+    }
+  },
+  {
+    "id": "cmh1ogkak0004hi0si6hm0wey",
+    "ip": "45.38.107.97",
+    "port": 6014,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T12:48:47.807Z",
+    "gotHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    },
+    "loginPage": {
+      "reachable": true,
+      "hasUsernameField": false,
+      "hasCaptcha": true,
+      "errors": [],
+      "snapshotText": ""
+    }
+  },
+  {
+    "id": "cmh1ogl9d0005hi0smdpdnsgw",
+    "ip": "107.172.163.27",
+    "port": 6543,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T12:48:55.386Z",
+    "gotHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    },
+    "loginPage": {
+      "reachable": true,
+      "hasUsernameField": false,
+      "hasCaptcha": true,
+      "errors": [],
+      "snapshotText": ""
+    }
+  },
+  {
+    "id": "cmh1ogm8p0006hi0s38968uju",
+    "ip": "64.137.96.74",
+    "port": 6641,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T12:49:05.867Z",
+    "gotHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    },
+    "loginPage": {
+      "reachable": true,
+      "hasUsernameField": false,
+      "hasCaptcha": true,
+      "errors": [],
+      "snapshotText": ""
+    }
+  },
+  {
+    "id": "cmh1ogn8g0007hi0s6exkifhj",
+    "ip": "216.10.27.159",
+    "port": 6837,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T12:49:13.958Z",
+    "gotHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    },
+    "loginPage": {
+      "reachable": true,
+      "hasUsernameField": false,
+      "hasCaptcha": true,
+      "errors": [],
+      "snapshotText": ""
+    }
+  },
+  {
+    "id": "cmh1ogo8c0008hi0si6ix3hm5",
+    "ip": "142.111.67.146",
+    "port": 5611,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T12:49:26.606Z",
+    "gotHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    },
+    "loginPage": {
+      "reachable": true,
+      "hasUsernameField": false,
+      "hasCaptcha": true,
+      "errors": [],
+      "snapshotText": ""
+    }
+  },
+  {
+    "id": "cmh1ogp8m0009hi0s5ozmay76",
+    "ip": "142.147.128.93",
+    "port": 6593,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T12:49:35.720Z",
+    "gotHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    },
+    "loginPage": {
+      "reachable": true,
+      "hasUsernameField": false,
+      "hasCaptcha": true,
+      "errors": [],
+      "snapshotText": ""
+    }
+  },
+  {
+    "id": "cmh1ogfnu0000hi0sva5hj3uo",
+    "ip": "142.111.48.253",
+    "port": 7030,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T12:49:44.136Z",
+    "gotHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    },
+    "loginPage": {
+      "reachable": true,
+      "hasUsernameField": false,
+      "hasCaptcha": true,
+      "errors": [],
+      "snapshotText": ""
+    }
+  },
+  {
+    "id": "cmh1oghd20001hi0sju7rrxw4",
+    "ip": "31.59.20.176",
+    "port": 6754,
+    "username": "guchhcqj",
+    "testedAt": "2025-10-22T12:49:51.685Z",
+    "gotHome": {
+      "ok": true,
+      "status": 200,
+      "error": null
+    },
+    "loginPage": {
+      "reachable": true,
+      "hasUsernameField": false,
+      "hasCaptcha": true,
+      "errors": [],
+      "snapshotText": ""
+    }
+  }
+]

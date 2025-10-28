@@ -3,43 +3,94 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // or your DB
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 model User {
-  id                  String   @id @default(cuid())
-  name                String?
-  email               String?  @unique
-  emailVerified       DateTime?
-  image               String?
+  id                   String    @id @default(cuid())
+  name                 String?
+  email                String?   @unique
+  emailVerified        DateTime?
+  image                String?
 
-  // Twitter OAuth 2.0 Fields
-  twitterAccessToken  String?
-  twitterRefreshToken String?
-  twitterState        String?
-  twitterTokenExpires DateTime? 
+  twitterAccessToken   String?
+  twitterRefreshToken  String?
+  twitterState         String?
+  twitterTokenExpires  DateTime?
+  twitterAuthCookie    String?
+  twitterCsrfToken     String?
+  twitterCookieExpires DateTime?
+  twitterUsername      String?
+  twitterPassword      String?
 
-  accounts            Account[]
-  sessions            Session[]
+  cookieEncrypted      String?   
+  cookieExpires        DateTime? 
+
+  proxyId   String?  @unique
+  proxy     Proxy?   @relation(fields: [proxyId], references: [id])
+
+  lastPostedAt         DateTime? 
+  postingCooldownSecs  Int?
+
+  accounts             Account[]
+  sessions             Session[]
+  posts                Post[]
+}
+
+model Proxy {
+  id         String   @id @default(cuid())
+  ip         String   @unique
+  port       Int
+  protocol   String?              
+  username   String?
+  password   String?
+  assigned   Boolean  @default(false)
+  assignedAt DateTime?
+
+  user       User?     @relation
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+
+model Post {
+  id         String   @id @default(cuid())
+  userId     String
+  text       String
+  scheduled  DateTime
+  posted     Boolean  @default(false)
+  tweetUrl   String?        
+  postedAt   DateTime?      
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media      Media[]
+}
+
+
+model Media {
+  id      String   @id @default(cuid())
+  postId  String
+  url     String
+  type    String   // "image" | "video"
+  order   Int?     // optional order if multiple media
+  post    Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 }
 
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -49,8 +100,7 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -60,6 +110,7 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
 model TwitterOAuth {
   id           Int      @id @default(autoincrement())
   state        String   @unique
