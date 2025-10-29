@@ -26,25 +26,33 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async session({ session, user }) {
       if (session.user) {
+        // Basic user id
         (session.user as any).id = user.id;
 
+        // Fetch full user from Prisma
         const fullUser = await prisma.user.findUnique({
           where: { id: user.id },
-          include: { proxy: true },
+          select: {
+            twitterUsername: true,
+            twitterPassword: true,
+            proxy: true,
+          },
         });
 
-        // if (fullUser && !fullUser.proxy) {
-        //   const proxy = await assignProxyToUser(fullUser.id);
-        //   console.log("[session] Assigned proxy:", proxy);
-        // }
+        // Add custom fields
+        if (fullUser) {
+          (session.user as any).twitterUsername = fullUser.twitterUsername ?? null;
+          (session.user as any).twitterPassword = fullUser.twitterPassword ?? null;
+        }
       }
+
       return session;
     },
   },
 
   events: {
     async createUser({ user }) {
-      // // Assign a dedicated proxy immediately after creation
+      // // Assign proxy when new user is created
       // const proxy = await assignProxyToUser(user.id);
       // console.log("[createUser] Assigned proxy:", proxy);
     },

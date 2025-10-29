@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "public"."Post" ADD COLUMN     "content" TEXT,
+ADD COLUMN     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;

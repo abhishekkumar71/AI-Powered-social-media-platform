@@ -8,10 +8,10 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { prisma } from "@/lib/prisma";
-import { decryptPayload } from "./cookies";
-import { downloadToTempFile } from "./media";
-import { secondsBetween, randInt } from "./delay";
-import { extractTweetIdFromJson } from "./tweetHelper";
+import { decryptPayload } from "../../../../utils/X/cookies";
+import { downloadToTempFile } from "../../../../utils/X/media";
+import { secondsBetween, randInt } from "../../../../utils/X/delay";
+import { extractTweetIdFromJson } from "../../../../utils/X/tweetHelper";
 import { getCachedMedia, clearOldCache } from "../../../../utils/mediaCache";
 
 type ApiResp =

@@ -12,7 +12,6 @@ model User {
   email                String?   @unique
   emailVerified        DateTime?
   image                String?
-
   twitterAccessToken   String?
   twitterRefreshToken  String?
   twitterState         String?
@@ -22,16 +21,12 @@ model User {
   twitterCookieExpires DateTime?
   twitterUsername      String?
   twitterPassword      String?
-
   cookieEncrypted      String?   
   cookieExpires        DateTime? 
-
   proxyId   String?  @unique
   proxy     Proxy?   @relation(fields: [proxyId], references: [id])
-
   lastPostedAt         DateTime? 
   postingCooldownSecs  Int?
-
   accounts             Account[]
   sessions             Session[]
   posts                Post[]
@@ -55,15 +50,17 @@ model Proxy {
 
 
 model Post {
-  id         String   @id @default(cuid())
-  userId     String
-  text       String
-  scheduled  DateTime
-  posted     Boolean  @default(false)
-  tweetUrl   String?        
-  postedAt   DateTime?      
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  media      Media[]
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  content   String?     
+  scheduled DateTime
+  posted    Boolean  @default(false)
+  tweetUrl  String?
+  postedAt  DateTime?
+  createdAt DateTime @default(now())   
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media     Media[]
 }
 
 
