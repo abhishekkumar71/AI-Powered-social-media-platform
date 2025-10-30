@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start -p $PORT",
     "lint": "eslint",
-    "postinstall": "npx playwright install --with-deps chromium"
+    "postinstall": "npx playwright install chromium"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
