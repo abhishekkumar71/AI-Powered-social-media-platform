@@ -1,12 +1,18 @@
-import { DefaultSession } from "next-auth";
+import { DefaultSession, DefaultUser } from "next-auth";
 
 declare module "next-auth" {
-  interface Session {
+  interface User extends DefaultUser {
+    id: string;
+    twitterCodeVerifier?: string;
+    twitterAccessToken?: string;
+    twitterRefreshToken?: string;
+    twitterUsername?: string | null;
+    twitterPassword?: string | null;
+  }
+
+  interface Session extends DefaultSession {
     user: {
       id: string;
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
       twitterCodeVerifier?: string;
       twitterAccessToken?: string;
       twitterRefreshToken?: string;
