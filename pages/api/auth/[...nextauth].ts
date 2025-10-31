@@ -19,17 +19,12 @@ export const authOptions: NextAuthOptions = {
     strategy: "database",
   },
 
-  pages: {
-    signIn: "/auth/signin",
-  },
 
   callbacks: {
     async session({ session, user }) {
-      if (session.user) {
-        // Basic user id
-        (session.user as any).id = user.id;
+      try {
+        if (!session.user) return session;
 
-        // Fetch full user from Prisma
         const fullUser = await prisma.user.findUnique({
           where: { id: user.id },
           select: {
@@ -39,14 +34,19 @@ export const authOptions: NextAuthOptions = {
           },
         });
 
-        // Add custom fields
-        if (fullUser) {
-          (session.user as any).twitterUsername = fullUser.twitterUsername ?? null;
-          (session.user as any).twitterPassword = fullUser.twitterPassword ?? null;
-        }
+        return {
+          ...session,
+          user: {
+            ...session.user,
+            id: user.id,
+            twitterUsername: fullUser?.twitterUsername ?? null,
+            twitterPassword: fullUser?.twitterPassword ?? null,
+          },
+        };
+      } catch (error) {
+        console.error("Error in session callback:", error);
+        return session;
       }
-
-      return session;
     },
   },
 

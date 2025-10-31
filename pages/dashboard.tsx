@@ -37,10 +37,11 @@ export default function NewPostForm() {
 
   const { notify } = useNotification();
   const { setLoading } = useLoading();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
-  // check connection
   const checkConnection = async () => {
+    if (status === "loading") return;
+
     if (!session) return signIn();
     try {
       setLoading(true);
@@ -55,7 +56,7 @@ export default function NewPostForm() {
 
   useEffect(() => {
     checkConnection();
-  }, [session]);
+  }, [status,session]);
 
   const saveCredentials = async () => {
     try {
