@@ -9,7 +9,7 @@
     "start": "next start -p $PORT",
     "lint": "eslint",
     "postinstall": "npx playwright install chromium",
-    "heroku-postbuild": "npx playwright install chromium && next build"
+    "heroku-postbuild": "npx playwright install --with-deps chromium && next build"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
