@@ -1,13 +1,14 @@
-# Fix duplicate /tmp/.apt collision
-DUPLICATE_FIX: true
-
-# Required Playwright dependencies
 libnss3
-libxss1
-libasound2
 libatk1.0-0
 libatk-bridge2.0-0
-libxshmfence1
+libx11-xcb1
+libxcomposite1
+libxdamage1
+libxrandr2
 libgbm1
-xvfb
-fonts-liberation
+libasound2
+libgtk-3-0
+libxshmfence1
+libpango-1.0-0
+libpangocairo-1.0-0
+libcups2
