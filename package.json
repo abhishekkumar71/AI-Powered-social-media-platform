@@ -30,7 +30,6 @@
     "playwright-extra": "^4.3.6",
     "playwright-extra-plugin-stealth": "^0.0.1",
     "prisma": "^6.16.2",
-    "puppeteer": "^24.22.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-scroll": "^1.9.3",
