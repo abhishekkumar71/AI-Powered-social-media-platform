@@ -1,6 +1,13 @@
+# Ignore local caches, test artifacts, and dev-only files
 node_modules/
-.next/cache/
-.git/
+playwright/.local-browsers/
 tmp/
+.cache/
+.next/cache/
 tests/
+test/
 *.log
+*.zip
+*.tar
+*.7z
+.DS_Store
