@@ -124,7 +124,7 @@ export async function postToX(
 
   try {
     const launchOpts: any = {
-      headless: false,
+      headless: true,
       args: [
         "--disable-blink-features=AutomationControlled",
         "--disable-infobars",
