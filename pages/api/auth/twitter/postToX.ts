@@ -131,8 +131,8 @@ export async function postToX(
         "--no-sandbox",
       ],
     };
-    if (CHROME_PATH) launchOpts.executablePath = CHROME_PATH;
-    else launchOpts.channel = "chrome";
+    // if (CHROME_PATH) launchOpts.executablePath = CHROME_PATH;
+    // else launchOpts.channel = "chrome";
 
     browser = await chromium.launch(launchOpts);
     context = await browser.newContext({
