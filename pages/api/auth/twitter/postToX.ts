@@ -126,9 +126,12 @@ export async function postToX(
     const launchOpts: any = {
       headless: true,
       args: [
-        "--disable-blink-features=AutomationControlled",
-        "--disable-infobars",
         "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-infobars",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
       ],
     };
     // if (CHROME_PATH) launchOpts.executablePath = CHROME_PATH;
