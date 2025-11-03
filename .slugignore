@@ -1,6 +1,5 @@
 # Ignore local caches, test artifacts, and dev-only files
 node_modules/
-playwright/.local-browsers/
 tmp/
 .cache/
 .next/cache/
