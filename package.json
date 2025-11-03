@@ -7,7 +7,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start -p $PORT",
-    "lint": "eslint"
+    "lint": "eslint",
+    "heroku-postbuild": "npx playwright install chromium"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
