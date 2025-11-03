@@ -75,10 +75,12 @@ export default async function handler(
   let browser: any = null;
   try {
     console.log("[testLogin] Launching browser...");
-    browser = await chromium.launch({
-      headless: false,
-      slowMo: 250,
-      args: ["--disable-blink-features=AutomationControlled"],
+    const chromePath =
+      process.env.CHROME_PATH || "/app/.apt/opt/google/chrome/chrome";
+    const browser = await chromium.launch({
+      executablePath: chromePath,
+      args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+      headless: true,
     });
 
     const context = await browser.newContext();
@@ -146,20 +148,16 @@ export default async function handler(
         },
       });
 
-      res
-        .status(200)
-        .json({
-          success: true,
-          message: "Login successful and cookies saved!",
-        });
+      res.status(200).json({
+        success: true,
+        message: "Login successful and cookies saved!",
+      });
     } else {
       console.log("Login not confirmed.");
-      res
-        .status(200)
-        .json({
-          success: false,
-          message: "Login attempt made, but not confirmed.",
-        });
+      res.status(200).json({
+        success: false,
+        message: "Login attempt made, but not confirmed.",
+      });
     }
 
     await browser.close();
