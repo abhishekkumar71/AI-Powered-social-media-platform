@@ -1,9 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import {
-  chromium,
-  BrowserContext,
+import type {
   Response as PlaywrightResponse,
-} from "playwright";
+  BrowserContext,
+} from "playwright-core";
+
+import { chromium } from "playwright-core";
+import type { Cookie } from "playwright-core";
+
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -30,8 +33,9 @@ const GLOBAL_MIN_INTERVAL_SEC = Number(
 const MIN_DELAY_MIN = Number(process.env.POST_MIN_DELAY_MIN ?? 2);
 const MAX_DELAY_MIN = Number(process.env.POST_MAX_DELAY_MIN ?? 6);
 const ENC_KEY_B64 = process.env.COOKIE_ENC_KEY;
-const CHROME_PATH = process.env.CHROME_PATH;
-
+// const CHROME_PATH = process.env.CHROME_PATH;
+const BROWSERLESS_TOKEN = process.env.BROWSERLESS_TOKEN;
+if (!BROWSERLESS_TOKEN) throw new Error("Missing BROWSERLESS_TOKEN in env");
 if (!ENC_KEY_B64) throw new Error("Missing COOKIE_ENC_KEY in .env.local");
 
 export async function postToX(
@@ -106,7 +110,7 @@ export async function postToX(
     };
   }
 
-  const cookieObjects = cookies.map((c: any) => ({
+  const cookieObjects = cookies.map((c: Cookie) => ({
     name: String(c.name),
     value: String(c.value),
     path: c.path ?? "/",
@@ -123,21 +127,9 @@ export async function postToX(
   let tweetUrl: string | null = null;
 
   try {
-    const launchOpts: any = {
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-infobars",
-        "--disable-blink-features=AutomationControlled",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-      ],
-    };
-    // if (CHROME_PATH) launchOpts.executablePath = CHROME_PATH;
-    // else launchOpts.channel = "chrome";
+    const wsEndpoint = `wss://chrome.browserless.io?token=${BROWSERLESS_TOKEN}`;
+    browser = await chromium.connectOverCDP(wsEndpoint);
 
-    browser = await chromium.launch(launchOpts);
     context = await browser.newContext({
       viewport: { width: 1280, height: 900 },
     });

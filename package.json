@@ -7,8 +7,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start -p $PORT",
-    "lint": "eslint",
-    "postinstall": "npx playwright install chromium"
+    "lint": "eslint"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -27,7 +26,7 @@
     "next-auth": "^4.24.11",
     "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
-    "playwright": "^1.56.1",
+    "playwright-core": "^1.56.1",
     "playwright-extra": "^4.3.6",
     "playwright-extra-plugin-stealth": "^0.0.1",
     "prisma": "^6.16.2",
