@@ -10,7 +10,3 @@ test/
 *.7z
 .DS_Store
 
-# Ignore Playwright browser binaries
-node_modules/playwright/.local-browsers/
-node_modules/playwright-core/.local-browsers/
-.cache/ms-playwright/
