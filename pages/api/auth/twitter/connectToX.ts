@@ -70,6 +70,29 @@ async function debugScreenshot(page: any, label: string) {
     console.error("[debugScreenshot] failed:", e);
   }
 }
+// Inject stealth patches dynamically after page loads
+async function injectStealth(page: any) {
+  try {
+    await page.evaluate(() => {
+      try {
+        Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+        Object.defineProperty(navigator, "languages", {
+          get: () => ["en-US", "en"],
+        });
+        Object.defineProperty(navigator, "plugins", {
+          get: () => [1, 2, 3],
+        });
+        Object.defineProperty(navigator, "platform", {
+          get: () => "Win32",
+        });
+      } catch (e) {
+        console.warn("[stealth] failed injection", e);
+      }
+    });
+  } catch (e) {
+    console.warn("[stealth] runtime inject failed", e);
+  }
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -105,43 +128,29 @@ export default async function handler(
 
     const context = await browser.newContext();
     const page = await context.newPage();
+    console.log("[testLogin] Configuring stealth context (CDP-safe)...");
 
-    console.log("[testLogin] Configuring stealth context...");
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await page.setExtraHTTPHeaders({
-      "Accept-Language": "en-US,en;q=0.9",
-      "Upgrade-Insecure-Requests": "1",
-      "Sec-Fetch-Dest": "document",
-      "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": "none",
-      "Sec-Fetch-User": "?1",
-    });
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    );
-    await page.evaluateOnNewDocument(() => {
-      // Hide automation traces
-      Object.defineProperty(navigator, "webdriver", { get: () => undefined });
-      Object.defineProperty(navigator, "languages", {
-        get: () => ["en-US", "en"],
-      });
-      Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3] });
-    });
+    console.log("[testLogin] Configuring stealth context (CDP-safe)...");
 
     console.log("[testLogin] Navigating to login page...");
     try {
       await page.goto("https://x.com/i/flow/login", {
         waitUntil: "domcontentloaded",
         timeout: 120000,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
       });
+      await injectStealth(page); // works fine
     } catch (e) {
-      console.warn(
-        "[testLogin] Primary login page failed, trying mobile version..."
-      );
+      console.warn("[testLogin] Primary login failed, trying mobile...");
       await page.goto("https://mobile.twitter.com/login", {
         waitUntil: "domcontentloaded",
         timeout: 120000,
       });
+      await injectStealth(page);
     }
 
     await page.waitForTimeout(5000);
