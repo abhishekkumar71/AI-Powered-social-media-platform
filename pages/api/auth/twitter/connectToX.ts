@@ -2,8 +2,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Cookie } from "playwright-core";
 import { chromium } from "playwright-core";
 import crypto from "crypto";
-import fs from "fs";
-import path from "path";
+// import fs from "fs";
+// import path from "path";
 import { prisma } from "@/lib/prisma";
 import cloudinary from "cloudinary";
 
@@ -64,7 +64,6 @@ async function debugScreenshot(page: any, label: string) {
       }
     );
 
-    // Manually pipe the buffer into the Cloudinary stream
     const stream = uploadRes as unknown as NodeJS.WritableStream;
     stream.end(buffer);
   } catch (e) {
@@ -107,15 +106,64 @@ export default async function handler(
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    console.log("[testLogin] Navigating to login page...");
-    await page.goto("https://x.com/i/flow/login", {
-      waitUntil: "domcontentloaded",
-      timeout: 60000,
+    console.log("[testLogin] Configuring stealth context...");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setExtraHTTPHeaders({
+      "Accept-Language": "en-US,en;q=0.9",
+      "Upgrade-Insecure-Requests": "1",
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
+    });
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    );
+    await page.evaluateOnNewDocument(() => {
+      // Hide automation traces
+      Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+      Object.defineProperty(navigator, "languages", {
+        get: () => ["en-US", "en"],
+      });
+      Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3] });
     });
 
-    await page.waitForTimeout(5000); // let dynamic content settle
+    console.log("[testLogin] Navigating to login page...");
+    try {
+      await page.goto("https://x.com/i/flow/login", {
+        waitUntil: "domcontentloaded",
+        timeout: 120000,
+      });
+    } catch (e) {
+      console.warn(
+        "[testLogin] Primary login page failed, trying mobile version..."
+      );
+      await page.goto("https://mobile.twitter.com/login", {
+        waitUntil: "domcontentloaded",
+        timeout: 120000,
+      });
+    }
 
-    // confirm page actually rendered something
+    await page.waitForTimeout(5000);
+
+    // detect X error page
+    const bodyText = await page.textContent("body");
+    if (bodyText?.includes("Something went wrong")) {
+      console.warn("[testLogin] Detected reload page — refreshing once...");
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(5000);
+    }
+
+    const title = (await page.title())?.toLowerCase();
+    if (!title.includes("login")) {
+      console.warn(
+        "[testLogin] Warning: unexpected page title:",
+        await page.title()
+      );
+    }
+
+    await page.waitForTimeout(5000);
+
     if (!(await page.title()).toLowerCase().includes("login")) {
       console.warn(
         "[testLogin] Warning: unexpected page title",
