@@ -51,8 +51,13 @@ function cookieExpiryFromCookies(
 async function debugScreenshot(page: any, label: string) {
   try {
     const buffer = await page.screenshot({ fullPage: false });
+    const timestamp = Date.now();
     const uploadRes = await cloudinary.v2.uploader.upload_stream(
-      { folder: "browserless-debug", public_id: label, resource_type: "image" },
+      {
+        folder: "browserless-debug",
+        public_id: `${label}_${timestamp}`,
+        resource_type: "image",
+      },
       (error, result) => {
         if (error) console.error("[debugScreenshot] upload failed:", error);
         else console.log(`[debug] Screenshot uploaded: ${result?.secure_url}`);
