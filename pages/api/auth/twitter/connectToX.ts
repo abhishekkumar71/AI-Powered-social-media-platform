@@ -2,25 +2,32 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Cookie } from "playwright-core";
 import { chromium } from "playwright-core";
 import crypto from "crypto";
-// import fs from "fs";
-// import path from "path";
 import { prisma } from "@/lib/prisma";
-import cloudinary from "cloudinary";
-
-cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
-  api_key: process.env.CLOUDINARY_API_KEY!,
-  api_secret: process.env.CLOUDINARY_API_SECRET!,
-});
+import {
+  attachResponseWatcher,
+  humanClickElement,
+  uploadBufferToCloudinary,
+  captureAndUpload,
+  realisticMouseMove,
+  scrollAndIdle,
+  installInitScript,
+  humanType,
+} from "./helpers";
 
 type Resp = { success: boolean; message: string };
 
 const ENC_KEY_B64 = process.env.COOKIE_ENC_KEY;
 const BROWSERLESS_TOKEN = process.env.BROWSERLESS_TOKEN;
 
+if (!ENC_KEY_B64) throw new Error("Missing COOKIE_ENC_KEY in .env.local");
+if (!BROWSERLESS_TOKEN)
+  console.warn(
+    "Missing BROWSERLESS_TOKEN in env (continuing without Browserless)"
+  );
+
+/* ---------------- Encryption helpers ---------------- */
 function ensureKey(): Buffer {
-  if (!ENC_KEY_B64) throw new Error("Missing COOKIE_ENC_KEY in .env.local");
-  const key = Buffer.from(ENC_KEY_B64, "base64");
+  const key = Buffer.from(ENC_KEY_B64!, "base64");
   if (key.length !== 32)
     throw new Error("COOKIE_ENC_KEY must decode to 32 bytes");
   return key;
@@ -42,56 +49,10 @@ function cookieExpiryFromCookies(
   cookies: Array<{ expires: number | null }>
 ): Date | null {
   const valid = cookies.filter(
-    (c) => typeof c.expires === "number" && isFinite(c.expires)
+    (c) => typeof c.expires === "number" && isFinite(c.expires as number)
   );
   if (!valid.length) return null;
-  return new Date(Math.max(...valid.map((c) => c.expires!)) * 1000);
-}
-
-async function debugScreenshot(page: any, label: string) {
-  try {
-    const buffer = await page.screenshot({ fullPage: false });
-    const timestamp = Date.now();
-    const uploadRes = await cloudinary.v2.uploader.upload_stream(
-      {
-        folder: "browserless-debug",
-        public_id: `${label}_${timestamp}`,
-        resource_type: "image",
-      },
-      (error, result) => {
-        if (error) console.error("[debugScreenshot] upload failed:", error);
-        else console.log(`[debug] Screenshot uploaded: ${result?.secure_url}`);
-      }
-    );
-
-    const stream = uploadRes as unknown as NodeJS.WritableStream;
-    stream.end(buffer);
-  } catch (e) {
-    console.error("[debugScreenshot] failed:", e);
-  }
-}
-// Inject stealth patches dynamically after page loads
-async function injectStealth(page: any) {
-  try {
-    await page.evaluate(() => {
-      try {
-        Object.defineProperty(navigator, "webdriver", { get: () => undefined });
-        Object.defineProperty(navigator, "languages", {
-          get: () => ["en-US", "en"],
-        });
-        Object.defineProperty(navigator, "plugins", {
-          get: () => [1, 2, 3],
-        });
-        Object.defineProperty(navigator, "platform", {
-          get: () => "Win32",
-        });
-      } catch (e) {
-        console.warn("[stealth] failed injection", e);
-      }
-    });
-  } catch (e) {
-    console.warn("[stealth] runtime inject failed", e);
-  }
+  return new Date(Math.max(...valid.map((c) => (c.expires as number)!)) * 1000);
 }
 
 export default async function handler(
@@ -111,7 +72,6 @@ export default async function handler(
     where: { id: userId },
     select: { twitterUsername: true, twitterPassword: true },
   });
-
   if (!user?.twitterUsername || !user?.twitterPassword)
     return res.status(400).json({
       success: false,
@@ -119,105 +79,229 @@ export default async function handler(
     });
 
   const { twitterUsername, twitterPassword } = user;
-  let browser: any;
+  let browser: any = null;
+  let context: any = null;
 
   try {
-    const wsEndpoint = `wss://production-sfo.browserless.io?token=${BROWSERLESS_TOKEN}`;
-    console.log("[testLogin] Connecting to Browserless:", wsEndpoint);
-    browser = await chromium.connectOverCDP(wsEndpoint);
-
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    console.log("[testLogin] Configuring stealth context (CDP-safe)...");
-
-    console.log("[testLogin] Configuring stealth context (CDP-safe)...");
-
-    console.log("[testLogin] Navigating to login page...");
-    try {
-      await page.goto("https://x.com/i/flow/login", {
-        waitUntil: "domcontentloaded",
-        timeout: 120000,
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
-      });
-      await injectStealth(page); // works fine
-    } catch (e) {
-      console.warn("[testLogin] Primary login failed, trying mobile...");
-      await page.goto("https://mobile.twitter.com/login", {
-        waitUntil: "domcontentloaded",
-        timeout: 120000,
-      });
-      await injectStealth(page);
-    }
-
-    await page.waitForTimeout(5000);
-
-    // detect X error page
-    const bodyText = await page.textContent("body");
-    if (bodyText?.includes("Something went wrong")) {
-      console.warn("[testLogin] Detected reload page — refreshing once...");
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForTimeout(5000);
-    }
-
-    const title = (await page.title())?.toLowerCase();
-    if (!title.includes("login")) {
-      console.warn(
-        "[testLogin] Warning: unexpected page title:",
-        await page.title()
-      );
-    }
-
-    await page.waitForTimeout(5000);
-
-    if (!(await page.title()).toLowerCase().includes("login")) {
-      console.warn(
-        "[testLogin] Warning: unexpected page title",
-        await page.title()
-      );
-    }
-
-    // give Browserless time to settle before first capture
-    await page.waitForTimeout(5000);
-
-    await page.screenshot({
-      path: "/tmp/screenshots/01_login_page_loaded.png",
+    browser = await chromium.launch({
+      headless: true,
+      ignoreDefaultArgs: ["--enable-automation"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-features=IsolateOrigins,site-per-process",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-site-isolation-trials",
+        "--disable-infobars",
+        "--disable-web-security",
+        "--allow-running-insecure-content",
+        "--ignore-certificate-errors",
+        "--window-size=1280,800",
+      ],
     });
-    console.log(
-      "[debug] Screenshot saved: /tmp/screenshots/01_login_page_loaded.png"
+
+    const userAgent =
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.59 Safari/537.36";
+
+    context = await browser.newContext({
+      userAgent,
+      locale: "en-US",
+      viewport: { width: 1280, height: 800 },
+      timezoneId: "Asia/Kolkata",
+      extraHTTPHeaders: {
+        "Accept-Language": "en-US,en;q=0.9",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-CH-UA":
+          '"Chromium";v="142", "Google Chrome";v="142", "Not A(Brand";v="99"',
+        "Sec-CH-UA-Mobile": "?0",
+        "Sec-CH-UA-Platform": '"Windows"',
+      },
+    });
+
+    const page = await context.newPage();
+
+    try {
+      const cdp = await context.newCDPSession(page);
+      await cdp
+        .send("Network.setUserAgentOverride", { userAgent })
+        .catch((e: any) => {
+          console.warn(
+            "[stealth] Network.setUserAgentOverride failed (non-fatal) ->",
+            e?.message || e
+          );
+        });
+    } catch (e: any) {
+      console.warn(
+        "[stealth] newCDPSession/send failed (continuing)",
+        e?.message || e
+      );
+    }
+
+    await installInitScript(context, page);
+    attachResponseWatcher(page);
+
+    page.on("console", (msg: any) => {
+      try {
+        console.log("[console]", msg.text ? msg.text() : msg);
+      } catch {}
+    });
+    page.on("pageerror", (err: Error) =>
+      console.log("[pageerror]", err && err.message)
     );
 
-    await debugScreenshot(page, "01_login_page_loaded");
+    console.log("[testLogin] Navigating to login page...");
+    await page.goto("https://x.com/i/flow/login", {
+      waitUntil: "domcontentloaded",
+      timeout: 120000,
+    });
 
+    await page.waitForTimeout(2500);
+    await captureAndUpload(page, "before_error_check");
+
+    const bodyText = await page.textContent("body").catch(() => null);
+    const title = await page.title().catch(() => "");
+    if (
+      bodyText?.includes("Something went wrong") ||
+      (title && title.toLowerCase().includes("something went wrong"))
+    ) {
+      console.warn("[testLogin] Detected 'Something went wrong' page");
+      await captureAndUpload(page, "error_something_went_wrong");
+      return res.status(200).json({
+        success: false,
+        message:
+          "Detected 'Something went wrong' screen — likely fingerprint or network issue.",
+      });
+    }
+
+    await page.waitForTimeout(2000);
+    await captureAndUpload(page, "01_login_page_loaded");
+    await page.waitForTimeout(3500 + Math.random() * 1200);
     console.log("[testLogin] Waiting for username input...");
-    await page.waitForSelector('input[name="text"]', { timeout: 45000 });
-    await debugScreenshot(page, "02_username_field_ready");
+    await page.waitForSelector(
+      'input[name="text"], input[type="text"], input[name="session[username_or_email]"], input[name="username"]',
+      { timeout: 45000 }
+    );
+
+    await captureAndUpload(page, "02_username_field_ready");
+    await scrollAndIdle(page);
 
     console.log("[testLogin] Typing username...");
-    await page.fill('input[name="text"]', twitterUsername);
-    await page.keyboard.press("Enter");
+    const usernameSelectors = [
+      'input[name="text"]',
+      'input[type="text"]',
+      'input[name="session[username_or_email]"]',
+      'input[name="username"]',
+    ];
+    let usedSelector = "";
+    for (const sel of usernameSelectors) {
+      const el = await page.$(sel);
+      if (el) {
+        usedSelector = sel;
+        break;
+      }
+    }
+    if (!usedSelector)
+      throw new Error("Could not find username input after wait");
 
-    console.log("[testLogin] Waiting for password...");
-    await page.waitForSelector('input[name="password"]', { timeout: 45000 });
-    await debugScreenshot(page, "03_password_field_ready");
+    await humanType(page, usedSelector, twitterUsername);
+    await captureAndUpload(page, "after_username_typed");
 
-    await page.fill('input[name="password"]', twitterPassword);
-    await page.keyboard.press("Enter");
+    try {
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(1500);
+    } catch (e) {
+      console.warn("[testLogin] Enter press failed, will try manual click");
+    }
+    await captureAndUpload(page, "after_enter_pressed");
 
-    console.log("[testLogin] Waiting post-login redirect...");
-    await page.waitForTimeout(8000);
-    await debugScreenshot(page, "04_after_login_submit");
+    try {
+      const nextButtons = await page.$$(
+        'div[role="button"]:scope, button:scope, span:scope'
+      );
+      let picked: any = null;
+      for (const b of nextButtons) {
+        try {
+          const txt = (await b.innerText()).trim();
+          if (
+            /^\s*(Next|Continue|Log in|Log in to|Next\u2026)\s*$/i.test(txt) ||
+            /Next|Continue/i.test(txt)
+          ) {
+            picked = b;
+            break;
+          }
+        } catch (e) {}
+      }
+      if (picked) {
+        console.log(
+          "[testLogin] Found candidate Next button, performing human click"
+        );
+        await picked.scrollIntoViewIfNeeded().catch(() => {});
+        await humanClickElement(page, picked);
+        await captureAndUpload(page, "after_next_button_clicked");
+        await Promise.race([
+          page
+            .waitForSelector('input[name="password"], input[type="password"]', {
+              timeout: 8000,
+            })
+            .catch(() => null),
+          page
+            .waitForResponse(
+              (r: any) =>
+                /graphql.*user_flow|onboarding\/task/i.test(r.url()) &&
+                r.status() === 200,
+              { timeout: 8000 }
+            )
+            .catch(() => null),
+        ]);
+      }
+    } catch (e: any) {
+      console.warn(
+        "[testLogin] Next/Continue click fallback failed",
+        e?.message || e
+      );
+    }
+
+    console.log("[testLogin] Waiting for password input...");
+    await page.waitForSelector(
+      'input[name="password"], input[type="password"]',
+      { timeout: 45000 }
+    );
+    await captureAndUpload(page, "03_password_field_ready");
+
+    const passwordSelectors = [
+      'input[name="password"]',
+      'input[type="password"]',
+    ];
+    let usedPassSelector = "";
+    for (const sel of passwordSelectors) {
+      const el = await page.$(sel);
+      if (el) {
+        usedPassSelector = sel;
+        break;
+      }
+    }
+    if (!usedPassSelector)
+      throw new Error("Could not find password input after wait");
+
+    await humanType(page, usedPassSelector, twitterPassword);
+    await page.keyboard.press("Enter").catch(() => {});
+
+    console.log("[testLogin] Waiting for post-login redirect / home...");
+    await page.waitForTimeout(7000);
+    await captureAndUpload(page, "04_after_login_submit");
 
     const currentURL = page.url();
-    console.log("[testLogin] URL:", currentURL);
+    console.log("[testLogin] URL after submit:", currentURL);
 
-    if (currentURL.includes("/home")) {
-      console.log("[testLogin] Login successful!");
-      const cookies = await context.cookies("https://x.com");
-      const safeCookies = cookies.map((c: Cookie) => ({
+    if (currentURL.includes("/home") || currentURL.includes("/i/home")) {
+      console.log("[testLogin] Login appears successful — capturing cookies");
+
+      const allCookies = await context.cookies();
+      const safeCookies = allCookies.map((c: any) => ({
         name: c.name,
         value: c.value,
         domain: c.domain,
@@ -236,27 +320,46 @@ export default async function handler(
 
       await prisma.user.update({
         where: { id: userId },
-        data: {
-          twitterAuthCookie: encrypted,
-          twitterCookieExpires: expiresAt,
-        },
+        data: { twitterAuthCookie: encrypted, twitterCookieExpires: expiresAt },
       });
 
       return res
         .status(200)
         .json({ success: true, message: "Login successful & cookies saved." });
     } else {
+      console.warn(
+        "[testLogin] Not redirected to home - possible challenge/2FA. URL:",
+        currentURL
+      );
+      await captureAndUpload(page, "05_not_on_home");
       return res.status(200).json({
         success: false,
-        message: "Login failed or Twitter/X showed an unexpected page.",
+        message:
+          "Login failed or X showed an unexpected page/challenge. Screenshots captured.",
       });
     }
   } catch (err: any) {
     console.error("[testLogin] error:", err);
-    res
+    if (err.message.includes("Something went wrong")) {
+      console.log("[backoff] Sleeping 5min to cool down");
+      await new Promise((r) => setTimeout(r, 5 * 60 * 1000));
+    }
+
+    try {
+      const pages = context?.pages?.() ?? [];
+      if (pages[0]) await captureAndUpload(pages[0], "crash_or_error");
+    } catch (e2) {
+      console.warn("[debug] crash screenshot failed", e2);
+    }
+    return res
       .status(500)
       .json({ success: false, message: err?.message || "Unknown error" });
   } finally {
+    await context?.clearCookies?.();
+    await context?.clearPermissions?.();
+    try {
+      await context?.close?.();
+    } catch {}
     try {
       await browser?.close?.();
     } catch {}

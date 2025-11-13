@@ -16,7 +16,16 @@ import { downloadToTempFile } from "../../../../utils/X/media";
 import { secondsBetween, randInt } from "../../../../utils/X/delay";
 import { extractTweetIdFromJson } from "../../../../utils/X/tweetHelper";
 import { getCachedMedia, clearOldCache } from "../../../../utils/mediaCache";
-
+import {
+  attachResponseWatcher,
+  humanClickElement,
+  uploadBufferToCloudinary,
+  captureAndUpload,
+  realisticMouseMove,
+  scrollAndIdle,
+  installInitScript,
+  humanType,
+} from "./helpers";
 type ApiResp =
   | { success: true; tweetUrl?: string }
   | {
@@ -33,11 +42,30 @@ const GLOBAL_MIN_INTERVAL_SEC = Number(
 const MIN_DELAY_MIN = Number(process.env.POST_MIN_DELAY_MIN ?? 2);
 const MAX_DELAY_MIN = Number(process.env.POST_MAX_DELAY_MIN ?? 6);
 const ENC_KEY_B64 = process.env.COOKIE_ENC_KEY;
-// const CHROME_PATH = process.env.CHROME_PATH;
 const BROWSERLESS_TOKEN = process.env.BROWSERLESS_TOKEN;
-if (!BROWSERLESS_TOKEN) throw new Error("Missing BROWSERLESS_TOKEN in env");
-if (!ENC_KEY_B64) throw new Error("Missing COOKIE_ENC_KEY in .env.local");
 
+if (!ENC_KEY_B64) throw new Error("Missing COOKIE_ENC_KEY in .env.local");
+// Note: browserless optional but preferred
+if (!BROWSERLESS_TOKEN)
+  console.warn("Missing BROWSERLESS_TOKEN in env (will try local chromium)");
+
+/* ---------------- Normalize cookies for Playwright ---------------- */
+function normalizeCookieForPlaywright(c: any): Cookie {
+  // ensure domain is acceptable for Playwright
+  const domain = String(c.domain ?? "x.com");
+  return {
+    name: String(c.name),
+    value: String(c.value),
+    path: c.path ?? "/",
+    domain,
+    expires: typeof c.expires === "number" ? c.expires : undefined,
+    httpOnly: !!c.httpOnly,
+    secure: !!c.secure,
+    sameSite: (c as any).sameSite || "None",
+  } as Cookie;
+}
+
+/* ---------------- Main function ---------------- */
 export async function postToX(
   userId: string,
   text: string,
@@ -86,6 +114,7 @@ export async function postToX(
     };
   }
 
+  // set next available posting time (user-level cooldown)
   const nextAvailablePost = new Date(
     Date.now() + randInt(MIN_DELAY_MIN * 60_000, MAX_DELAY_MIN * 60_000)
   );
@@ -94,11 +123,13 @@ export async function postToX(
     data: { lastPostedAt: nextAvailablePost },
   });
 
+  // decrypt cookies
   let cookies: any[] = [];
   try {
     cookies = decryptPayload(user.twitterAuthCookie).cookies;
     if (!Array.isArray(cookies)) throw new Error("Invalid cookie payload");
   } catch (err) {
+    // rollback lastPostedAt
     await prisma.user
       .update({ where: { id: userId }, data: { lastPostedAt: last } })
       .catch(() => {});
@@ -110,16 +141,7 @@ export async function postToX(
     };
   }
 
-  const cookieObjects = cookies.map((c: Cookie) => ({
-    name: String(c.name),
-    value: String(c.value),
-    path: c.path ?? "/",
-    domain: c.domain ?? "x.com",
-    expires: typeof c.expires === "number" ? c.expires : undefined,
-    httpOnly: !!c.httpOnly,
-    secure: !!c.secure,
-    sameSite: c.sameSite || "None",
-  }));
+  const cookieObjects = cookies.map(normalizeCookieForPlaywright);
 
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pp-chrome-"));
   let browser: any = null;
@@ -127,38 +149,95 @@ export async function postToX(
   let tweetUrl: string | null = null;
 
   try {
-    const wsEndpoint = `wss://chrome.browserless.io?token=${BROWSERLESS_TOKEN}`;
-    browser = await chromium.connectOverCDP(wsEndpoint);
+    // fallback to launching local chromium
+    browser = await chromium.launch({
+      headless: true,
+      ignoreDefaultArgs: ["--enable-automation"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-features=IsolateOrigins,site-per-process",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-web-security",
+        "--allow-running-insecure-content",
+        "--ignore-certificate-errors",
+        "--window-size=1280,900",
+      ],
+    });
+    console.log("[postToX] Launched local chromium fallback");
 
+    // create context and apply cookies
     context = await browser.newContext({
       viewport: { width: 1280, height: 900 },
+      locale: "en-US",
+      timezoneId: "Asia/Kolkata",
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.59 Safari/537.36",
+      extraHTTPHeaders: {
+        "Accept-Language": "en-US,en;q=0.9",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-CH-UA":
+          '"Chromium";v="142", "Google Chrome";v="142", "Not A(Brand";v="99"',
+        "Sec-CH-UA-Mobile": "?0",
+        "Sec-CH-UA-Platform": '"Windows"',
+      },
     });
-
-    await context?.addCookies(cookieObjects);
 
     const page = await context!.newPage();
-    await page.addInitScript(() => {
+
+    await installInitScript(context, page);
+    attachResponseWatcher(page);
+
+    page.on("console", (m: any) => {
       try {
-        Object.defineProperty(navigator, "webdriver", { get: () => undefined });
-        Object.defineProperty(navigator, "languages", {
-          get: () => ["en-US", "en"],
-        });
+        console.log("[console]", m.text ? m.text() : m);
       } catch {}
     });
+    page.on("pageerror", (err: any) =>
+      console.log("[pageerror]", err?.message ?? err)
+    );
 
-    await page.goto("https://x.com/home", { waitUntil: "domcontentloaded" });
+    // add cookies
+    try {
+      await context?.addCookies(cookieObjects as any[]);
+      console.log("[postToX] cookies added to context");
+    } catch (e: any) {
+      console.warn(
+        "[postToX] addCookies failed, continuing (cookies might be invalid):",
+        e?.message ?? e
+      );
+    }
+
+    // navigate to home and verify logged in
+    await page.goto("https://x.com/home", {
+      waitUntil: "domcontentloaded",
+      timeout: 120000,
+    });
+    await page.waitForTimeout(1200 + Math.floor(Math.random() * 1200));
+    await captureAndUpload(page, "home_loaded");
+    await scrollAndIdle(page);
     const loggedIn = await detectLoggedIn(page);
-    if (!loggedIn)
+    if (!loggedIn) {
+      await prisma.user
+        .update({ where: { id: userId }, data: { lastPostedAt: last } })
+        .catch(() => {});
       return {
         success: false,
         message: "Session invalid — reconnect.",
         needReconnect: true,
       };
+    }
 
     await page.goto("https://x.com/compose/post", {
       waitUntil: "domcontentloaded",
+      timeout: 120000,
     });
+    await page.waitForTimeout(800 + Math.random() * 800);
+    await captureAndUpload(page, "compose_page_loaded");
+    await scrollAndIdle(page);
 
+    // media handling
     if (mediaUrls && mediaUrls.length > 0) {
       clearOldCache();
       const localPaths: string[] = [];
@@ -172,45 +251,90 @@ export async function postToX(
       }
 
       if (localPaths.length > 0) {
-        const uploadSelector = 'input[data-testid="fileInput"]';
+        // prefer file input
+        const uploadSelector =
+          'input[data-testid="fileInput"], input[type="file"]';
         await page.waitForSelector(uploadSelector, { timeout: 15000 });
         const fileInput = await page.$(uploadSelector);
         if (!fileInput) throw new Error("Upload input not found");
+        await realisticMouseMove(page, 500, 400, 440, 420, 15);
 
+        // set files
         await fileInput.setInputFiles(localPaths);
-        console.log("[postToX] Media upload triggered:", localPaths);
+        console.log("[postToX] setInputFiles called:", localPaths);
 
+        // wait for media preview (DOM) OR an upload request
+        const previewPromise = page
+          .waitForSelector(
+            'div[role="textbox"] img, div[role="textbox"] video, [data-testid="mediaPreview"] img, [data-testid="media-preview"] img',
+            { timeout: 45000 }
+          )
+          .catch(() => null);
+        const networkPromise = page
+          .waitForResponse(
+            (r: PlaywrightResponse) =>
+              /media_upload|upload|videos\/upload|images\/upload/i.test(
+                r.url()
+              ),
+            { timeout: 45000 }
+          )
+          .catch(() => null);
+        const previewResult = await Promise.race([
+          previewPromise,
+          networkPromise,
+        ]);
+        if (!previewResult) {
+          console.warn(
+            "[postToX] Media preview/upload not observed within 45s. Proceeding anyway (may fail)."
+          );
+        } else {
+          console.log("[postToX] Media upload/preview detected");
+          await captureAndUpload(page, "media_uploaded");
+          await scrollAndIdle(page);
+        }
+
+        // wait until post button enabled (or timeout)
         const postBtnSelector =
           'div[data-testid="tweetButtonInline"], div[data-testid="tweetButton"], button:has-text("Post")';
-        const postBtn = await page.waitForSelector(postBtnSelector, {
-          timeout: 45000,
-        });
-
-        // wait until button is enabled as sign of media upload completion
-        const start = Date.now();
-        while (!(await postBtn.isEnabled()) && Date.now() - start < 60000) {
-          await page.waitForTimeout(300);
+        const postBtn = await page
+          .waitForSelector(postBtnSelector, { timeout: 45000 })
+          .catch(() => null);
+        if (postBtn) {
+          const start = Date.now();
+          while (!(await postBtn.isEnabled()) && Date.now() - start < 60000) {
+            await page.waitForTimeout(300);
+          }
+        } else {
+          console.warn("[postToX] Post button not found after media upload");
         }
       }
     }
 
+    // compose text
     const textboxSelector = 'div[role="textbox"]';
     await page.waitForSelector(textboxSelector, { timeout: 20000 });
-    await page.click(textboxSelector);
+    const composer = await page.$(textboxSelector);
+    if (!composer) throw new Error("Composer textbox not found");
 
-    for (const ch of text)
-      await page.keyboard.type(ch, { delay: 40 + Math.random() * 30 });
-    await page.waitForTimeout(800);
+    // click into composer in human-like way
+    await composer.scrollIntoViewIfNeeded().catch(() => {});
+    await humanClickElement(page, composer);
+    await page.waitForTimeout(500 + Math.floor(Math.random() * 600));
 
-    const postBtnSelector =
-      'div[data-testid="tweetButtonInline"], div[data-testid="tweetButton"], button:has-text("Post")';
+    await humanType(page, 'div[role="textbox"]', text);
+    await realisticMouseMove(page, 500, 400, 700, 420, 15);
+
+    await page.waitForTimeout(500 + Math.floor(Math.random() * 600));
+    await captureAndUpload(page, "text_typed");
+    await scrollAndIdle(page);
+    // prepare to catch the createTweet GraphQL response
     let tweetId: string | null = null;
     page.on("response", async (resp: PlaywrightResponse) => {
       try {
         const url = resp.url();
         if (
           url.includes("/i/api/graphql/") &&
-          url.toLowerCase().includes("createtweet")
+          /createtweet/i.test(url.toLowerCase())
         ) {
           const json = await resp.json().catch(() => null);
           const id = extractTweetIdFromJson(json);
@@ -219,33 +343,59 @@ export async function postToX(
       } catch {}
     });
 
+    // click post
+    const postBtnSelector =
+      'div[data-testid="tweetButtonInline"], div[data-testid="tweetButton"], button:has-text("Post")';
+
     const btn = await page.waitForSelector(postBtnSelector, { timeout: 15000 });
-    await btn.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(400);
+    if (!btn) throw new Error("Post button not found");
+    await btn.scrollIntoViewIfNeeded().catch(() => {});
+    await page.waitForTimeout(250 + Math.floor(Math.random() * 350));
     await btn.click();
+    await captureAndUpload(page, "after_post_click");
 
+    // wait for createTweet response OR some timeline update
     const start = Date.now();
-    while (!tweetId && Date.now() - start < 20000)
+    while (!tweetId && Date.now() - start < 25000) {
       await page.waitForTimeout(200);
+    }
 
-    if (tweetId)
+    if (tweetId) {
       tweetUrl = user.twitterUsername
         ? `https://x.com/${user.twitterUsername}/status/${tweetId}`
         : `https://x.com/i/web/status/${tweetId}`;
 
-    if (tweetUrl && postId)
-      await prisma.post.update({
-        where: { id: postId },
-        data: { posted: true, tweetUrl, postedAt: new Date() },
-      });
-
-    return tweetUrl
-      ? { success: true, tweetUrl }
-      : { success: false, message: "Post not visible on timeline." };
+      if (tweetUrl && postId) {
+        await prisma.post.update({
+          where: { id: postId },
+          data: { posted: true, tweetUrl, postedAt: new Date() },
+        });
+      }
+      return { success: true, tweetUrl };
+    } else {
+      // no tweet id — try reading timeline to confirm or take a screenshot for debug
+      console.warn(
+        "[postToX] Post response not observed (no tweetId). Capturing debug info and rolling back if needed."
+      );
+      // rollback lastPostedAt to previous (allow immediate retry)
+      await prisma.user
+        .update({ where: { id: userId }, data: { lastPostedAt: last } })
+        .catch(() => {});
+      return { success: false, message: "Post not visible on timeline." };
+    }
   } catch (err: any) {
-    console.error("[postToX] ERROR:", err);
+    console.error("[postToX] ERROR:", err?.message ?? err);
+    // rollback lastPostedAt to previous so user can retry
+    try {
+      await prisma.user
+        .update({ where: { id: userId }, data: { lastPostedAt: last } })
+        .catch(() => {});
+    } catch {}
     return { success: false, message: err?.message ?? "Unknown error" };
   } finally {
+    try {
+      await context?.clearCookies?.();
+    } catch {}
     try {
       await context?.close?.();
     } catch {}
@@ -258,10 +408,13 @@ export async function postToX(
   }
 }
 
+/* ---------------- Logged-in detection ---------------- */
 async function detectLoggedIn(page: any): Promise<boolean> {
   try {
+    // if composer present, assume logged in
     const composer = await page.$('div[role="textbox"]');
     if (composer) return true;
+    // otherwise if login link/button present, not logged in
     const loginBtn = await page.$(
       'a:has-text("Log in"), button:has-text("Log in")'
     );
@@ -293,6 +446,6 @@ export default async function handler(
     : [];
 
   const result = await postToX(userId, text, postId, mediaArray);
-  console.log(result);
+  console.log("[postToX] result:", result);
   return res.status(result.success ? 200 : 500).json(result);
 }
